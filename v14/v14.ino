@@ -133,6 +133,7 @@ void getM2Pulse()
 }
 /*********************************************************************************************/
 
+
 /***************************** Motor Straight Setup *********************************************/
 void straightsetup()
 {
@@ -200,10 +201,7 @@ void computeks()
 
 
 /***************************** Main Loop *************************************************/
-void activateDelay()
-{
-  delay(750);
-}
+#define amountX 750
 
 void loop()
 {
@@ -245,110 +243,110 @@ void loop()
 
     case 'q' :
       gostraight1block();
-      activateDelay();
+      delay(amountX);
       break;
 
     case 'w' :
       gostraightblock(2);
-      activateDelay();
+      delay(amountX);
       break;
 
     case 'e' :
       gostraightblock(3);
-      activateDelay();
+      delay(amountX);
       break;
 
     case 'r' :
       gostraightblock(4);
-      activateDelay();
+      delay(amountX);
       break;
 
     case 't' :
       gostraightblock(5);
-      activateDelay();
+      delay(amountX);
       break;
 
     case 'y' :
       gostraightblock(6);
-      activateDelay();
+      delay(amountX);
       break;
 
     case 'u' :
       gostraightblock(7);
-      activateDelay();
+      delay(amountX);
       break;
 
     case 'i' :
       gostraightblock(8);
-      activateDelay();
+      delay(amountX);
       break;
 
     case 'o' :
       gostraightblock(9);
-      activateDelay();
+      delay(amountX);
       break;
 
     case 'p' :
       gostraightblock(10);
-      activateDelay();
+      delay(amountX);
       break;
 
     case '[' :
       gostraightblock(11);
-      activateDelay();
+      delay(amountX);
       break;
 
     case ']' :
       gostraightblock(12);
-      activateDelay();
+      delay(amountX);
       break;
 
     case 'l' :
       gostraightblock(13);
-      activateDelay();
+      delay(amountX);
       break;
 
     case 'k' :
       gostraightblock(14);
-      activateDelay();
+      delay(amountX);
       break;
 
     case 'j' :
       gostraightblock(15);
-      activateDelay();
+      delay(amountX);
       break;
 
     case 'h' :
       gostraightblock(16);
-      activateDelay();
+      delay(amountX);
       break;
 
     case 'g' :
       gostraightblock(17);
-      activateDelay();
+      delay(amountX);
       break;
 
     case 'a' :
       turnleft();
-      activateDelay();
+      delay(amountX);
       break;
 
     case 's' :
       turnleft();
-      activateDelay();
+      delay(amountX);
       turnleft();
-      activateDelay();
+      delay(amountX);
       break;
 
     case 'd' :
       turnright();
-      activateDelay();
+      delay(amountX);
       break;
 
     case 'z' :
       autoalign();
       autoalign();
-      activateDelay();
+      delay(amountX);
       break;
   }
 }
@@ -428,9 +426,6 @@ void pidcalculator()
   md.setM2Speed(m2currentspeed);
 }
 /*********************************************************************************************/
-
-
-
 
 
 /********************** Formula to convert Period -> RPM *************************************/

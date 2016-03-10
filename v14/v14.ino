@@ -534,12 +534,11 @@ void readingSensors()
   sideFSensor = sensorSB[2];
   sideBSensor = sensorST[2];
 
-
-  leftSensorValueInt = blockFunction2(leftSensorValue);
-  rightSensorValueInt = blockFunction2(rightSensorValue);
-  middleSensorValueInt = blockFunction2(middleSensorValue);
-  sideFSensorInt = blockFunction2(sideFSensor);
-  sideBSensorInt = blockFunction2(sideBSensor);
+  leftSensorValueInt = block2Function(leftSensorValue);
+  rightSensorValueInt = block2Function(rightSensorValue);
+  middleSensorValueInt = block2Function(middleSensorValue);
+  sideFSensorInt = block2Function(sideFSensor);
+  sideBSensorInt = block2Function(sideBSensor);
 }
 /*********************************************************************************************/
 
@@ -605,13 +604,13 @@ void insertionSort(double readings[])
 
 
 /***************************** Block Function ****************************/
-int blockFunction(double original)
+int block3Function(double original) // detect things 3 blocks or less
 {
   int blocks;
 
   blocks = (int)original / 10;
 
-  if (blocks < 3)
+  if (blocks < 4)
   {
     return blocks;
   }
@@ -625,7 +624,7 @@ int blockFunction(double original)
 
 
 /***************************** Block Function (Side Sensor) ****************************/
-int blockFunction2(double original)
+int block2Function(double original) //detech things 2 blocks or less
 {
   int blocks;
 
@@ -651,7 +650,6 @@ void autoalign()
 
   if ((leftSensorValue > 20) && (rightSensorValue > 20) && (middleSensorValue > 20)) return;
   
-
   for (int i = 0; i < 3; i++)
   {
     if ((leftSensorValue < 20) && (rightSensorValue < 20))

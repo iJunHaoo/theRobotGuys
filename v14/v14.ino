@@ -28,11 +28,11 @@ int leftSensorValueInt, rightSensorValueInt, middleSensorValueInt, sideFSensorIn
 /**********************************************************************************************/
 
 
-
 /*****************************  Motor Variables  ***********************************************/
 volatile int pulse_prev_m1, pulse_now_m1, m1_avg_rpm = 0, m1_tick = 0, pulse_prev_m2, pulse_now_m2, m2_avg_rpm = 0, m2_tick = 0;
 int pinM1 = 3;
 int pinM2 = 5;
+
 // Motor M1 variables
 double m1currentrpm, m1newrpm, m1encoder, m1currentspeed;
 double m1kp, m1ki, m1kd;
@@ -53,11 +53,95 @@ volatile double idealrpm2;
 /*********************************************************************************************/
 
 
-
 /***************************** User Variable **************************************************/
 char userInput;
 /**********************************************************************************************/
 
+
+/************************************* Main Setup **********************************************/
+void setup()
+{
+  Serial.begin(115200);
+  //Serial.println("Dual VNH5019 Motor Shield");
+  //Serial.println("Hello");
+  md.init();
+
+  pinMode(5, OUTPUT);
+  analogWrite(5, 0);
+
+  pinMode(pinM1, INPUT);
+  pinMode(pinM2, INPUT);
+
+  digitalWrite(pinM1, LOW);
+  digitalWrite(pinM2, LOW);
+
+  PCintPort::attachInterrupt(pinM1, getM1Pulse, CHANGE);
+  PCintPort::attachInterrupt(pinM2, getM2Pulse, CHANGE);
+  straightsetup();
+}
+/*********************************************************************************************/
+
+
+/***************************** Get M1 interrupt Count  ****************************************/
+/***************************** & Calculate RPM  ***********************************************/
+void getM1Pulse()
+{
+  if ( digitalRead(pinM1) == HIGH)
+  {
+    pulse_prev_m1 = micros();
+    count_m1++;
+  }
+  else
+  {
+    pulse_now_m1 = micros();
+    pulse_prev_m1 = pulse_now_m1 - pulse_prev_m1;
+    if ( m1currentrpm != 0 )
+    {
+      m1currentrpm = (m1currentrpm + (period_to_rpm(pulse_prev_m1))) / 2;
+    }
+    else
+    {
+      m1currentrpm = period_to_rpm(pulse_prev_m1);
+    }
+  }
+}
+/*********************************************************************************************/
+
+
+/***************************** Get M2 interrupt Count  ****************************************/
+/***************************** & Calculate RPM  ***********************************************/
+void getM2Pulse()
+{
+  if ( digitalRead(pinM2) == HIGH)
+  {
+    pulse_prev_m2 = micros();
+    count_m2++;
+  }
+  else
+  {
+    pulse_now_m2 = micros();
+    pulse_prev_m2 = pulse_now_m2 - pulse_prev_m2;
+    if ( m2currentrpm != 0 )
+    {
+      m2currentrpm = (m2currentrpm + (period_to_rpm(pulse_prev_m2))) / 2;
+    }
+    else
+    {
+      m2currentrpm = period_to_rpm(pulse_prev_m2);
+    }
+  }
+}
+/*********************************************************************************************/
+
+/***************************** Motor Straight Setup *********************************************/
+void straightsetup()
+{
+  initial();
+  m1rpm2speed();
+  m2rpm2speed();
+  computeks();
+}
+/***********************************************************************************************/
 
 
 /***************************** Motors Kp, Ki, Kd ***********************************************/
@@ -85,6 +169,21 @@ void initial()
 /***********************************************************************************************/
 
 
+/***************************** M1 RPM - SPEED ***********************************************/
+void m1rpm2speed()
+{
+  m1currentspeed = (idealrpm1 + 4.1052) / 0.3957;
+}
+/*********************************************************************************************/
+
+
+/***************************** M2 RPM - SPEED ***********************************************/
+void m2rpm2speed()
+{
+  m2currentspeed = (idealrpm2 + 8.4265) / 0.4019;
+}
+/*********************************************************************************************/
+
 
 /***************************** Calculate K1, K2, K3 ******************************************/
 void computeks()
@@ -98,84 +197,6 @@ void computeks()
   m2k3 = m2kd;
 }
 /*********************************************************************************************/
-
-
-
-/***************************** M1 RPM - SPEED ***********************************************/
-void m1rpm2speed()
-{
-  m1currentspeed = (idealrpm1 + 4.1052) / 0.3957;
-}
-/*********************************************************************************************/
-
-
-
-/***************************** M2 RPM - SPEED ***********************************************/
-void m2rpm2speed()
-{
-  m2currentspeed = (idealrpm2 + 8.4265) / 0.4019;
-}
-/*********************************************************************************************/
-
-
-
-/***************************** PID Calculator ***********************************************/
-void pidcalculator()
-{
-  m1e3 = m1e2;
-  m1e2 = m1e1;
-
-  m2e3 = m2e2;
-  m2e2 = m2e1;
-
-  m1e1 = idealrpm1 - m1currentrpm;
-  m2e1 = idealrpm2 - m2currentrpm;
-
-  m1currentspeed = m1currentspeed + m1k1 * m1e1 + m1k2 * m1e2 + m1k3 * m1e3;
-  m2currentspeed = m2currentspeed + m2k1 * m2e1 + m2k2 * m2e2 + m2k3 * m2e3;
-
-  md.setM1Speed(m1currentspeed);
-  md.setM2Speed(m2currentspeed);
-}
-/*********************************************************************************************/
-
-
-
-/***************************** Motor Straight Setup *********************************************/
-void straightsetup()
-{
-  initial();
-  m1rpm2speed();
-  m2rpm2speed();
-  computeks();
-}
-/***********************************************************************************************/
-
-
-
-/************************************* Main Setup **********************************************/
-void setup()
-{
-  Serial.begin(115200);
-  //Serial.println("Dual VNH5019 Motor Shield");
-  //Serial.println("Hello");
-  md.init();
-
-  pinMode(5, OUTPUT);
-  analogWrite(5, 0);
-
-  pinMode(pinM1, INPUT);
-  pinMode(pinM2, INPUT);
-
-  digitalWrite(pinM1, LOW);
-  digitalWrite(pinM2, LOW);
-
-  PCintPort::attachInterrupt(pinM1, getM1Pulse, CHANGE);
-  PCintPort::attachInterrupt(pinM2, getM2Pulse, CHANGE);
-  straightsetup();
-}
-/*********************************************************************************************/
-
 
 
 /***************************** Main Loop *************************************************/
@@ -203,7 +224,6 @@ void loop()
       Serial.print(sideBSensorInt);
       Serial.println("");
       break;
-
 
     case 'C' :
       for (int i = 0; i < 3; i++)
@@ -330,28 +350,12 @@ void loop()
       autoalign();
       activateDelay();
       break;
-
-//    case 'x' :
-//      autodistance();
-//      activateDelay();
-//      break;
-
   }
 }
 /****************************************************************************************/
 
 
-
-/***************************** Calling PID *************************************************/
-void gostraight()
-{
-  pidcalculator();
-}
-/******************************************************************************************/
-
-
-
-/***************************** Rotate Right 90 *************************************************/
+/***************************** Rotate RIGHT 90 *************************************************/
 void turnright()
 {
   count_m1 = 0;
@@ -360,15 +364,13 @@ void turnright()
   {
     md.setM1Speed(212);
     md.setM2Speed(-220);
-
   } while (count_m1 <= 375 || count_m2 <= 375);
   md.setBrakes(400, 400);
 }
 /**********************************************************************************************/
 
 
-
-/***************************** Rotate Left 90 *************************************************/
+/***************************** Rotate LEFT 90 *************************************************/
 void turnleft()
 {
   count_m1 = 0;
@@ -377,12 +379,10 @@ void turnleft()
   {
     md.setM1Speed(-212);
     md.setM2Speed(220);
-
   } while (count_m1 <= 390 || count_m2 <= 390);
   md.setBrakes(400, 400);
 }
 /*********************************************************************************************/
-
 
 
 /***************************** Go Straight Block by Block *************************************/
@@ -401,58 +401,35 @@ void gostraightblock(int x)
 /*********************************************************************************************/
 
 
-
-/***************************** Get M1 interrupt Count  ****************************************/
-/***************************** & Calculate RPM  ************************************************/
-void getM1Pulse()
+/***************************** Calling PID *************************************************/
+void gostraight()
 {
-  if ( digitalRead(pinM1) == HIGH)
-  {
-    pulse_prev_m1 = micros();
-    count_m1++;
-  }
-  else
-  {
-    pulse_now_m1 = micros();
-    pulse_prev_m1 = pulse_now_m1 - pulse_prev_m1;
-    if ( m1currentrpm != 0 )
-    {
-      m1currentrpm = (m1currentrpm + (period_to_rpm(pulse_prev_m1))) / 2;
-    }
-    else
-    {
-      m1currentrpm = period_to_rpm(pulse_prev_m1);
-    }
-  }
+  pidcalculator();
+}
+/******************************************************************************************/
+
+
+/***************************** PID Calculator ***********************************************/
+void pidcalculator()
+{
+  m1e3 = m1e2;
+  m1e2 = m1e1;
+
+  m2e3 = m2e2;
+  m2e2 = m2e1;
+
+  m1e1 = idealrpm1 - m1currentrpm;
+  m2e1 = idealrpm2 - m2currentrpm;
+
+  m1currentspeed = m1currentspeed + m1k1 * m1e1 + m1k2 * m1e2 + m1k3 * m1e3;
+  m2currentspeed = m2currentspeed + m2k1 * m2e1 + m2k2 * m2e2 + m2k3 * m2e3;
+
+  md.setM1Speed(m1currentspeed);
+  md.setM2Speed(m2currentspeed);
 }
 /*********************************************************************************************/
 
 
-
-/***************************** Get M2 interrupt Count  ****************************************/
-/***************************** & Calculate RPM  ************************************************/
-void getM2Pulse()
-{
-  if ( digitalRead(pinM2) == HIGH)
-  {
-    pulse_prev_m2 = micros();
-    count_m2++;
-  }
-  else
-  {
-    pulse_now_m2 = micros();
-    pulse_prev_m2 = pulse_now_m2 - pulse_prev_m2;
-    if ( m2currentrpm != 0 )
-    {
-      m2currentrpm = (m2currentrpm + (period_to_rpm(pulse_prev_m2))) / 2;
-    }
-    else
-    {
-      m2currentrpm = period_to_rpm(pulse_prev_m2);
-    }
-  }
-}
-/*********************************************************************************************/
 
 
 
@@ -463,7 +440,6 @@ double period_to_rpm(int time)
   return n_rpm;
 }
 /*********************************************************************************************/
-
 
 
 /************************** Initial Motors Speed ~ RAM UP***************************************/
@@ -497,7 +473,6 @@ void motorspeed2()
   md.setM2Speed(m2currentspeed);
 }
 /*********************************************************************************************/
-
 
 
 /********************************* Moving 1 Block (Hard Code) *******************************/
@@ -537,8 +512,7 @@ void gostraight1block()
   count_m1 = 0;
   count_m2 = 0;
 }
-/*********************************************************************************************/
-
+/********************************************************************************************/
 
 
 /******************************** Reading All Sensors ***************************************/
@@ -573,7 +547,6 @@ void readingSensors()
   sideBSensorInt = blockFunction2(sideBSensor);
 }
 /*********************************************************************************************/
-
 
 
 /******************************** Reading FRONT Sensors ***************************************/
@@ -615,7 +588,6 @@ void readingAlignSensors()
 /*********************************************************************************************/
 
 
-
 /********************** Insertion Sort <Get Median Value> *********************************/
 void insertionSort(double readings[])
 {
@@ -637,8 +609,6 @@ void insertionSort(double readings[])
 /*********************************************************************************************/
 
 
-
-
 /***************************** Block Function ****************************/
 int blockFunction(double original)
 {
@@ -646,7 +616,7 @@ int blockFunction(double original)
 
   blocks = (int)original / 10;
 
-  if (blocks < 4)
+  if (blocks < 3)
   {
     return blocks;
   }
@@ -657,7 +627,6 @@ int blockFunction(double original)
   }
 }
 /*******************************************************************************************/
-
 
 
 /***************************** Block Function (Side Sensor) ****************************/
@@ -680,94 +649,7 @@ int blockFunction2(double original)
 /*******************************************************************************************/
 
 
-
-
 /***************************** Auto Alignment <make robot straight> ****************************/
-//void autoalign()
-//{
-//  //readingAlignSensors();
-//  readingFrontSensors();
-//
-//  for (int i = 0; i < 3; i++)
-//  {
-//    if ((leftSensorValue < 20) && (rightSensorValue < 20))
-//    {
-//      while (leftSensorValue != rightSensorValue)
-//      {
-//        //        Serial.println("LEFT RIGHT - ");
-//        //        Serial.print(leftSensorValue);
-//        //        Serial.print(" | ");
-//        //        Serial.print(middleSensorValue);
-//        //        Serial.print(" | ");
-//        //        Serial.println(rightSensorValue);
-//        if ((leftSensorValue - rightSensorValue) < 0)
-//        {
-//          md.setSpeeds (-70 , 70);
-//        }
-//
-//        else if ((leftSensorValue - rightSensorValue) > 0)
-//        {
-//          md.setSpeeds (70 , -70);
-//        }
-//        readingFrontSensors();
-//        delay(50);
-//      }
-//      md.setBrakes(400, 400);
-//    }
-//
-//    if ((leftSensorValue < 20) && (middleSensorValue < 20))
-//    {
-//      while (leftSensorValue != middleSensorValue)
-//      {
-//        //        Serial.println("LEFT MIDDLE - ");
-//        //        Serial.print(leftSensorValue);
-//        //        Serial.print(" | ");
-//        //        Serial.print(middleSensorValue);
-//        //        Serial.print(" | ");
-//        //        Serial.println(rightSensorValue);
-//        if ((leftSensorValue - middleSensorValue) < 0)
-//        {
-//          md.setSpeeds (-70 , 70);
-//        }
-//
-//        else if ((leftSensorValue - middleSensorValue) > 0)
-//        {
-//          md.setSpeeds (70 , -70);
-//        }
-//        readingFrontSensors();
-//        delay(50);
-//      }
-//      md.setBrakes(400, 400);
-//    }
-//
-//    if ((middleSensorValue < 20) && (rightSensorValue < 20))
-//    {
-//      while (middleSensorValue != rightSensorValue)
-//      {
-//        //        Serial.println("MIDDLE RIGHT - ");
-//        //        Serial.print(leftSensorValue);
-//        //        Serial.print(" | ");
-//        //        Serial.print(middleSensorValue);
-//        //        Serial.print(" | ");
-//        //        Serial.println(rightSensorValue);
-//        if ((middleSensorValue - rightSensorValue) < 0)
-//        {
-//          md.setSpeeds (-70 , 70);
-//        }
-//
-//        else if ((middleSensorValue - rightSensorValue) > 0)
-//        {
-//          md.setSpeeds (70 , -70);
-//        }
-//        readingFrontSensors();
-//        delay(50);
-//      }
-//      md.setBrakes(400, 400);
-//    }
-//  }
-//  autodistance();
-//}
-
 void autoalign()
 {
   readingAlignSensors();
@@ -805,7 +687,6 @@ void autoalign()
   }
 }
 /*******************************************************************************************/
-
 
 
 /********** Auto Front <make robot move front or back a bit> *****************************/

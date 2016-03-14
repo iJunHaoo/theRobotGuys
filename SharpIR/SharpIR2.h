@@ -28,7 +28,7 @@
 class SharpIR2
 {
   public:
-    SharpIR2 (int irPin, int avg, int tolerance, int sensorModel);
+    SharpIR22 (int irPin, int avg, int tolerance, int sensorModel);
     int distance();
     
     

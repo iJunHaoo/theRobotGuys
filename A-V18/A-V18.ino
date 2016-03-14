@@ -1,6 +1,5 @@
 #include "DualVNH5019MotorShield.h"
 #include <PinChangeInt.h>
-#include <SharpIR.h>
 #include <SharpIR2.h>
 
 DualVNH5019MotorShield md;
@@ -12,7 +11,7 @@ DualVNH5019MotorShield md;
 #define sMiddle A4
 #define sTop A0
 
-int countList[17] = {280, 592, 879, 1160, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+int countList[17] = {302, 592, 879, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 int sensorSR [10];
 int sensorSL [10];
@@ -32,19 +31,27 @@ int leftSensorValueInt, rightSensorValueInt, middleSensorValueInt, sideFSensorIn
 
 
 /*****************************  Motor Variables  ***********************************************/
+volatile int pulse_prev_m1, pulse_now_m1, m1_avg_rpm = 0, m1_tick = 0, pulse_prev_m2, pulse_now_m2, m2_avg_rpm = 0, m2_tick = 0;
 int pinM1 = 3;
 int pinM2 = 5;
-double tickDifference = 0.0;
-double integral = 0.0;
-double tickNeeded = 0.0;
 
-// ------ M1 ----- //
-int M1tick = 0;
-double M1Speed;
+// Motor M1 variables
+double m1currentrpm, m1newrpm, m1encoder, m1currentspeed;
+double m1kp, m1ki, m1kd;
+volatile double m1e1, m1e2, m1e3;
+double m1k1, m1k2, m1k3;
+int count_m1 = 0;
 
-// ----- M2 ----- //
-int M2tick = 0;
-double M2Speed;
+// Motor M2 variables
+double m2currentrpm, m2newrpm, m2encoder, m2currentspeed;
+double m2kp, m2ki, m2kd;
+volatile double m2e1, m2e2, m2e3;
+double m2k1, m2k2, m2k3;
+int count_m2 = 0;
+
+// Ideal RPM
+volatile double idealrpm1;
+volatile double idealrpm2;
 /*********************************************************************************************/
 
 
@@ -67,14 +74,130 @@ void setup()
   pinMode(pinM1, INPUT);
   pinMode(pinM2, INPUT);
 
-  M1Speed = 250;
-  M2Speed = 250;
-
   digitalWrite(pinM1, LOW);
   digitalWrite(pinM2, LOW);
 
-  PCintPort::attachInterrupt(pinM1, getM1Pulse, RISING);
-  PCintPort::attachInterrupt(pinM2, getM2Pulse, RISING);
+  PCintPort::attachInterrupt(pinM1, getM1Pulse, CHANGE);
+  PCintPort::attachInterrupt(pinM2, getM2Pulse, CHANGE);
+  straightsetup();
+}
+/*********************************************************************************************/
+
+
+/***************************** Get M1 interrupt Count  ****************************************/
+/***************************** & Calculate RPM  ***********************************************/
+void getM1Pulse()
+{
+  if ( digitalRead(pinM1) == HIGH)
+  {
+    pulse_prev_m1 = micros();
+    count_m1++;
+  }
+  else
+  {
+    pulse_now_m1 = micros();
+    pulse_prev_m1 = pulse_now_m1 - pulse_prev_m1;
+    if ( m1currentrpm != 0 )
+    {
+      m1currentrpm = (m1currentrpm + (period_to_rpm(pulse_prev_m1))) / 2;
+    }
+    else
+    {
+      m1currentrpm = period_to_rpm(pulse_prev_m1);
+    }
+  }
+}
+/*********************************************************************************************/
+
+
+/***************************** Get M2 interrupt Count  ****************************************/
+/***************************** & Calculate RPM  ***********************************************/
+void getM2Pulse()
+{
+  if ( digitalRead(pinM2) == HIGH)
+  {
+    pulse_prev_m2 = micros();
+    count_m2++;
+  }
+  else
+  {
+    pulse_now_m2 = micros();
+    pulse_prev_m2 = pulse_now_m2 - pulse_prev_m2;
+    if ( m2currentrpm != 0 )
+    {
+      m2currentrpm = (m2currentrpm + (period_to_rpm(pulse_prev_m2))) / 2;
+    }
+    else
+    {
+      m2currentrpm = period_to_rpm(pulse_prev_m2);
+    }
+  }
+}
+/*********************************************************************************************/
+
+
+/***************************** Motor Straight Setup *********************************************/
+void straightsetup()
+{
+  initial();
+  m1rpm2speed();
+  m2rpm2speed();
+  computeks();
+}
+/***********************************************************************************************/
+
+
+/***************************** Motors Kp, Ki, Kd ***********************************************/
+void initial()
+{
+  m1kp = 2.3; //7.5
+  m1ki = 0.4;//0.08
+  m1kd = 0.3;//0.35
+
+  m2kp = 3.1; //8
+  m2ki = 0.5;//0.02
+  m2kd = 0.1;
+
+  m1e1 = 0.0;
+  m1e2 = 0.0;
+  m1e3 = 0.0;
+
+  m2e1 = 0.0;
+  m2e2 = 0.0;
+  m2e3 = 0.0;
+
+  idealrpm1 = 93.2;
+  idealrpm2 = 95;
+}
+/***********************************************************************************************/
+
+
+/***************************** M1 RPM - SPEED ***********************************************/
+void m1rpm2speed()
+{
+  m1currentspeed = (idealrpm1 + 4.1052) / 0.3957;
+}
+/*********************************************************************************************/
+
+
+/***************************** M2 RPM - SPEED ***********************************************/
+void m2rpm2speed()
+{
+  m2currentspeed = (idealrpm2 + 8.4265) / 0.4019;
+}
+/*********************************************************************************************/
+
+
+/***************************** Calculate K1, K2, K3 ******************************************/
+void computeks()
+{
+  m1k1 = m1kp + m1ki + m1kd;
+  m1k2 = - m1kp - 2 * m1kd;
+  m1k3 = m1kd;
+
+  m2k1 = m2kp + m2ki + m2kd;
+  m2k2 = - m2kp - 2 * m2kd;
+  m2k3 = m2kd;
 }
 /*********************************************************************************************/
 
@@ -195,9 +318,13 @@ void loop()
       delay(amountX);
       break;
 
-    case 'z' :
-      autoalign();
-      autoalign();
+    case 'h' :
+      gostraightblock(16);
+      delay(amountX);
+      break;
+
+    case 'g' :
+      gostraightblock(17);
       delay(amountX);
       break;
 
@@ -217,169 +344,26 @@ void loop()
       turnright();
       delay(amountX);
       break;
-      //    gostraightblock(1);
-      //    delay(amountX);
+
+    case 'z' :
+      autoalign();
+      delay(amountX);
+      break;
   }
 }
 /****************************************************************************************/
 
 
-
-/***************************** Get M1 interrupt Count  ****************************************/
-void getM1Pulse()
-{
-  M1tick++;
-}
-/*********************************************************************************************/
-
-
-/***************************** Get M2 interrupt Count  ****************************************/
-void getM2Pulse()
-{
-  M2tick++;
-}
-/*********************************************************************************************/
-
-
-
-/***************************** PID Calculator ***********************************************/
-double pidcalculator()
-{
-  double result;
-  double m1kp, m1ki, m1kd;
-  double m1p, m1i, m1d;
-
-  m1kp = 1.0;
-  m1ki = 0.0;
-  m1kd = 0.00;
-
-  tickDifference = M2tick - M1tick;
-  integral += tickDifference;
-
-  m1p = tickDifference * m1kp;
-  m1i = integral * m1ki;
-  m1d = ( 0 - M2tick ) * m1kd;
-
-  result = m1p + m1i + m1d;
-
-  return result;
-}
-/*********************************************************************************************/
-
-
-
-/***************************** Go Straight Block by Block *************************************/
-void gostraightblock(int x)
-{
-  int output = 0;
-  M1tick = 0;
-  M2tick = 0;
-  tickDifference = 0;
-  integral = 0;
-
-  switch (x)
-  {
-    case 1 : tickNeeded = countList[0];
-      break;
-
-    case 2 : tickNeeded = countList[1];
-      break;
-
-    case 3 : tickNeeded = countList[2];
-      break;
-
-    case 4 : tickNeeded = countList[3];
-      break;
-
-    case 5 : tickNeeded = countList[4];
-      break;
-
-    case 6 : tickNeeded = countList[5];
-      break;
-
-    case 7 : tickNeeded = countList[6];
-      break;
-
-    case 8 : tickNeeded = countList[7];
-      break;
-
-    case 9 : tickNeeded = countList[8];
-      break;
-
-    case 10 : tickNeeded = countList[9];
-      break;
-
-    case 11 : tickNeeded = countList[10];
-      break;
-
-    case 12 : tickNeeded = countList[11];
-      break;
-
-    case 13 : tickNeeded = countList[12];
-      break;
-
-    case 14 : tickNeeded = countList[13];
-      break;
-
-    case 15 : tickNeeded = countList[14];
-      break;
-
-    case 16 : tickNeeded = countList[15];
-      break;
-
-    case 17 : tickNeeded = countList[16];
-      break;
-
-  }
-
-  while ( M2tick < 100 )
-  {
-    output = pidcalculator();
-    md.setSpeeds(100 + output, 103 - output);
-  }
-
-  while ( M2tick < 180 )
-  {
-    output = pidcalculator();
-    md.setSpeeds(200 + output, 204 - output);
-  }
-
-  while ( M2tick < 260 )
-  {
-    output = pidcalculator();
-    md.setSpeeds(250 + output, 256 - output);
-  }
-
-  while ( M2tick < tickNeeded - 200)
-  {
-    output = pidcalculator();
-    md.setSpeeds(M1Speed + output, M2Speed - output);
-  }
-
-  while ( M2tick < tickNeeded)
-  {
-    output = pidcalculator();
-    md.setSpeeds(150 + output, 153 - output);
-  }
-
-  md.setBrakes(385, 400);
-  delay(80);
-  md.setBrakes(0, 0);
-}
-/*********************************************************************************************/
-
-
-
 /***************************** Rotate RIGHT 90 *************************************************/
 void turnright()
 {
-  M1tick = 0;
-  M2tick = 0;
+  count_m1 = 0;
+  count_m2 = 0;
   do
   {
     md.setM1Speed(212);
     md.setM2Speed(-220);
-  } while (M1tick <= 375 || M2tick <= 375);
+  } while (count_m1 <= 375 || count_m2 <= 375);
   md.setBrakes(400, 400);
 }
 /**********************************************************************************************/
@@ -388,18 +372,143 @@ void turnright()
 /***************************** Rotate LEFT 90 *************************************************/
 void turnleft()
 {
-  M1tick = 0;
-  M2tick = 0;
+  count_m1 = 0;
+  count_m2 = 0;
   do
   {
     md.setM1Speed(-212);
     md.setM2Speed(220);
-  } while (M1tick <= 390 || M2tick <= 390);
+  } while (count_m1 <= 390 || count_m2 <= 390);
   md.setBrakes(400, 400);
 }
 /*********************************************************************************************/
 
 
+/***************************** Go Straight Block by Block *************************************/
+void gostraightblock(int x)
+{
+  count_m1 = 0;
+  count_m2 = 0;
+  motorspeed2();
+  do
+  {
+    gostraight();
+    delay(20);
+  } while (count_m1 <= countList[x - 1] && count_m2 <= countList[x - 1]);
+  md.setBrakes(385, 400);
+}
+/*********************************************************************************************/
+
+
+/***************************** Calling PID *************************************************/
+void gostraight()
+{
+  pidcalculator();
+}
+/******************************************************************************************/
+
+
+/***************************** PID Calculator ***********************************************/
+void pidcalculator()
+{
+  m1e3 = m1e2;
+  m1e2 = m1e1;
+
+  m2e3 = m2e2;
+  m2e2 = m2e1;
+
+  m1e1 = idealrpm1 - m1currentrpm;
+  m2e1 = idealrpm2 - m2currentrpm;
+
+  m1currentspeed = m1currentspeed + m1k1 * m1e1 + m1k2 * m1e2 + m1k3 * m1e3;
+  m2currentspeed = m2currentspeed + m2k1 * m2e1 + m2k2 * m2e2 + m2k3 * m2e3;
+
+  md.setM1Speed(m1currentspeed);
+  md.setM2Speed(m2currentspeed);
+}
+/*********************************************************************************************/
+
+
+/********************** Formula to convert Period -> RPM *************************************/
+double period_to_rpm(int time)
+{
+  double n_rpm = 53357.048 / time;
+  return n_rpm;
+}
+/*********************************************************************************************/
+
+
+/************************** Initial Motors Speed ~ RAM UP***************************************/
+void motorspeed2()
+{
+  md.setM1Speed(31);
+  md.setM2Speed(31);
+  delay(50);
+
+  md.setM1Speed(35);
+  md.setM2Speed(32);
+  delay(150);
+
+  md.setM1Speed(43);
+  md.setM2Speed(40);
+  delay(200);
+
+  md.setM1Speed(131);
+  md.setM2Speed(134);
+  delay(200);
+
+  md.setM1Speed(181);
+  md.setM2Speed(183);
+  delay(200);
+
+  md.setM1Speed(216);
+  md.setM2Speed(213);
+  delay(200);
+
+  md.setM1Speed(m1currentspeed);
+  md.setM2Speed(m2currentspeed);
+}
+/*********************************************************************************************/
+
+
+/********************************* Moving 1 Block (Hard Code) *******************************/
+void gostraight1block()
+{
+  md.setM1Speed(38);
+  md.setM2Speed(28);
+  delay(50);
+
+  md.setM1Speed(38);
+  md.setM2Speed(31);
+  delay(150);
+
+  md.setM1Speed(43);
+  md.setM2Speed(39);
+  delay(200);
+
+  md.setM1Speed(132);
+  md.setM2Speed(130);
+  delay(200);
+
+  md.setM1Speed(187);
+  md.setM2Speed(182);
+  delay(200);
+
+  md.setM1Speed(214);
+  md.setM2Speed(209);
+  delay(200);
+
+  do
+  {
+    md.setM1Speed(252);
+    md.setM2Speed(249);
+  } while (count_m1 <= (301) && count_m2 <= (301));
+
+  md.setBrakes(400, 395);
+  count_m1 = 0;
+  count_m2 = 0;
+}
+/********************************************************************************************/
 
 
 /******************************** Reading All Sensors ***************************************/
@@ -602,19 +711,19 @@ void autoalign()
       {
         if ((leftSensorValue - rightSensorValue) < 0)
         {
-          md.setSpeeds (-70 , 70);
+          md.setSpeeds (-60 , 60);
         }
 
         else if ((leftSensorValue - rightSensorValue) > 0)
         {
-          md.setSpeeds (70 , -70);
+          md.setSpeeds (60 , -60);
         }
         readingAlignSensors();
         delay(50);
       }
       md.setBrakes(400, 400);
+      autodistance();
     }
-    autodistance();
   }
 }
 /*******************************************************************************************/
@@ -626,12 +735,12 @@ void autodistance()
   readingAlignSensors();
   while ((leftSensorValue != 10) && (rightSensorValue != 10))
   {
-    if ((leftSensorValue > 10) && (rightSensorValue > 10))
+    if ((leftSensorValue > 9) && (rightSensorValue > 9))
     {
       md.setSpeeds (70 , 70);
     }
 
-    else if ((leftSensorValue < 10) && (rightSensorValue < 10))
+    else if ((leftSensorValue < 9) && (rightSensorValue < 9))
     {
       md.setSpeeds (-70 , -70);
     }

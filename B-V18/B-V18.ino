@@ -405,7 +405,7 @@ void turnleft()
 }
 /*********************************************************************************************/
 
-
+#define rightOFFSET 0
 
 
 /******************************** Reading All Sensors ***************************************/
@@ -413,7 +413,7 @@ void readingSensors()
 {
   for (int i = 3; i > 0; i--)
   {
-    sensorSR[3 - i] = sR.distance();
+    sensorSR[3 - i] = sR.distance() + rightOFFSET;
     sensorSL[3 - i] = sL.distance();
     sensorSB[3 - i] = sB.distance();
     sensorSM[3 - i] = sM.distance();
@@ -446,7 +446,7 @@ void readingFrontSensors()
 {
   for (int i = 3; i > 0; i--)
   {
-    sensorSR[3 - i] = sR.distance();
+    sensorSR[3 - i] = sR.distance() + rightOFFSET;
     sensorSL[3 - i] = sL.distance();
     sensorSM[3 - i] = sM.distance();
   }
@@ -467,7 +467,7 @@ void readingAlignSensors()
 {
   for (int i = 3; i > 0; i--)
   {
-    sensorSR[3 - i] = sR.distance();
+    sensorSR[3 - i] = sR.distance() + rightOFFSET;
     sensorSL[3 - i] = sL.distance();
   }
 
@@ -594,13 +594,15 @@ int sideBBlockFunction(int original) // detect things 3 blocks or less
 }
 /*******************************************************************************************/
 
+#define alignSpeed 70
+#define NEGalignSpeed -70
 
 /***************************** Auto Alignment <make robot straight> ****************************/
 void autoalign()
 {
   readingAlignSensors();
 
-  for (int i = 0; i < 3; i++)
+  for (int i = 0; i < 5; i++)
   {
     if ((leftSensorValue < 15) && (rightSensorValue < 15))
     {
@@ -608,38 +610,39 @@ void autoalign()
       {
         if ((leftSensorValue - rightSensorValue) < 0)
         {
-          md.setSpeeds (-60 , 60);
+          md.setSpeeds (NEGalignSpeed , alignSpeed);
         }
 
         else if ((leftSensorValue - rightSensorValue) > 0)
         {
-          md.setSpeeds (60 , -60);
+          md.setSpeeds (alignSpeed , NEGalignSpeed);
         }
         readingAlignSensors();
         delay(50);
       }
       md.setBrakes(400, 400);
     }
-      autodistance();
+    autodistance();
   }
 }
 /*******************************************************************************************/
 
+#define distanceValue 10
 
 /********** Auto Front <make robot move front or back a bit> *****************************/
 void autodistance()
 {
   readingAlignSensors();
-  while ((leftSensorValue != 10) && (rightSensorValue != 10))
+  while ((leftSensorValue != distanceValue) && (rightSensorValue != distanceValue))
   {
-    if ((leftSensorValue > 9) && (rightSensorValue > 9))
+    if ((leftSensorValue > distanceValue) && (rightSensorValue > distanceValue))
     {
-      md.setSpeeds (70 , 70);
+      md.setSpeeds (alignSpeed , alignSpeed);
     }
 
-    else if ((leftSensorValue < 9) && (rightSensorValue < 9))
+    else if ((leftSensorValue < distanceValue) && (rightSensorValue < distanceValue))
     {
-      md.setSpeeds (-70 , -70);
+      md.setSpeeds (NEGalignSpeed , NEGalignSpeed);
     }
     readingAlignSensors();
     delay(50);

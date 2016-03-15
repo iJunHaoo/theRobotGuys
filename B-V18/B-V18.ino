@@ -11,7 +11,7 @@ DualVNH5019MotorShield md;
 #define sMiddle A4
 #define sTop A0
 
-int countList[17] = {280, 592, 879, 1160, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+int countList[17] = {285, 592, 879, 1160, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 int sensorSR [10];
 int sensorSL [10];
@@ -59,10 +59,7 @@ void setup()
   //Serial.println("Dual VNH5019 Motor Shield");
   //Serial.println("Hello");
   md.init();
-
-  pinMode(5, OUTPUT);
-  analogWrite(5, 0);
-
+  
   pinMode(pinM1, INPUT);
   pinMode(pinM2, INPUT);
 
@@ -80,8 +77,13 @@ void setup()
 
 /***************************** Main Loop *************************************************/
 #define amountX 750
-
 void loop()
+{
+  gostraightblock(1);
+  delay(750);
+}
+
+void fuckoff()
 {
   userInput = Serial.read();
 
@@ -251,7 +253,7 @@ void getM2Pulse()
 /***************************** PID Calculator ***********************************************/
 double pidcalculator()
 {
-  double result;
+  double result, last;
   double m1kp, m1ki, m1kd;
   double m1p, m1i, m1d;
 
@@ -264,10 +266,12 @@ double pidcalculator()
 
   m1p = tickDifference * m1kp;
   m1i = integral * m1ki;
-  m1d = ( 0 - M2tick ) * m1kd;
+  m1d = ( last - M2tick ) * m1kd;
 
   result = m1p + m1i + m1d;
 
+  last = M2tick;
+  
   return result;
 }
 /*********************************************************************************************/
@@ -277,7 +281,7 @@ double pidcalculator()
 /***************************** Go Straight Block by Block *************************************/
 void gostraightblock(int x)
 {
-  int output = 0;
+  double output = 0;
   M1tick = 0;
   M2tick = 0;
   tickDifference = 0;
@@ -337,23 +341,23 @@ void gostraightblock(int x)
       break;
 
   }
-
+  tickNeeded = 878;
   while ( M2tick < 100 )
   {
     output = pidcalculator();
-    md.setSpeeds(100 + output, 103 - output);
+    md.setSpeeds(100 + output, 100 - output);
   }
 
   while ( M2tick < 180 )
   {
     output = pidcalculator();
-    md.setSpeeds(200 + output, 204 - output);
+    md.setSpeeds(200 + output, 205 - output);
   }
 
   while ( M2tick < 260 )
   {
     output = pidcalculator();
-    md.setSpeeds(250 + output, 256 - output);
+    md.setSpeeds(250 + output, 257 - output);
   }
 
   while ( M2tick < tickNeeded - 200)
@@ -365,7 +369,7 @@ void gostraightblock(int x)
   while ( M2tick < tickNeeded)
   {
     output = pidcalculator();
-    md.setSpeeds(150 + output, 153 - output);
+    md.setSpeeds(150 + output, 165 - output);
   }
 
   md.setBrakes(385, 400);
